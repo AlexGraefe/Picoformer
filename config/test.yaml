@@ -1,0 +1,68 @@
+# Pretrain SmolLM2 on the local FineWeb-Edu Parquet dataset.
+# Run on this two-GPU machine with:
+#   automodel config/test.yaml --nproc-per-node 2
+
+recipe: TrainFinetuneRecipeForNextTokenPrediction
+
+step_scheduler:
+  global_batch_size: 32
+  local_batch_size: 2
+  ckpt_every_steps: 2000
+  num_epochs: 1
+  max_steps: 9500
+
+dist_env:
+  backend: nccl
+  timeout_minutes: 10
+
+model:
+  # Load the SmolLM2 architecture from its Hugging Face config, but initialize
+  # weights from scratch. Force the HF implementation and use SDPA so NEAT's
+  # document-aware block-causal mask and reset position IDs are honored. NeMo
+  # AutoModel 0.5.0's FlashAttention NEAT patch does not support Llama/SmolLM2.
+  _target_: nemo_automodel.NeMoAutoModelForCausalLM.from_config
+  config: HuggingFaceTB/SmolLM2-135M
+  force_hf: true
+  attn_implementation: sdpa
+
+dataset:
+  _target_: datasets/fineweb_edu_mini_maker.py:make_fineweb_edu
+  dataset_path: /data/datasets/fineweb_edu_mini
+  split: train
+  seq_length: 1024
+  padding: false
+  truncation: true
+  cache_size: 10000
+  tokenizer:
+    _target_: transformers.AutoTokenizer.from_pretrained
+    pretrained_model_name_or_path: HuggingFaceTB/SmolLM2-135M
+
+packed_sequence:
+  packing_strategy: neat
+  packed_sequence_size: 1024
+  drop_long_samples: false
+  max_packs: null
+  num_proc: 1
+
+dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  shuffle: true
+  num_workers: 0
+  pin_memory: true
+
+loss_fn:
+  _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 2.0e-4
+  betas: [0.9, 0.95]
+  eps: 1.0e-8
+  weight_decay: 0.1
+
+checkpoint:
+  checkpoint_dir: /data/picoformer
+
+distributed:
+  strategy: ddp
+  dp_size: 2

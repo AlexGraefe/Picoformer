@@ -1,0 +1,18 @@
+[project]
+name = "picoformer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "datasets>=4.0.0",
+    "flash-attn",
+    "nemo-automodel==0.5.0",
+    "numpy>=2.5.2",
+    "pip>=26.2.1",
+    "tqdm>=4.67.1",
+    "transformers>=5.8.0",
+]
+
+[tool.uv.sources]
+flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.47/flash_attn-2.8.3+cu132torch2.13-cp314-cp314-linux_x86_64.whl" }
