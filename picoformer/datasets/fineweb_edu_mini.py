@@ -5,7 +5,7 @@ Hugging Face streaming API, shuffled with a bounded in-memory buffer, and
 written incrementally to Parquet shards.
 
 Example:
-    python datasets/fineweb_edu_mini.py \
+    python -m picoformer.datasets.fineweb_edu_mini \
         --output-dir data/datasets/fineweb_edu_mini \
         --num-tokens 5B \
         --tokenize

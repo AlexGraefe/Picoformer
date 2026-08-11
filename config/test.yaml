@@ -1,13 +1,13 @@
-# Pretrain SmolLM2 on the local FineWeb-Edu Parquet dataset.
+# Pretrain a 135M-parameter Qwen3.5 model on the local FineWeb-Edu dataset.
 # Run on this two-GPU machine with:
 #   automodel config/test.yaml --nproc-per-node 2
 
 recipe: TrainFinetuneRecipeForNextTokenPrediction
 
 step_scheduler:
-  global_batch_size: 32
-  local_batch_size: 2
-  ckpt_every_steps: 2000
+  global_batch_size: 64
+  local_batch_size: 1
+  ckpt_every_steps: 100
   num_epochs: 1
   max_steps: 9500
 
@@ -16,39 +16,66 @@ dist_env:
   timeout_minutes: 10
 
 model:
-  # Load the SmolLM2 architecture from its Hugging Face config, but initialize
-  # weights from scratch. Force the HF implementation and use SDPA so NEAT's
-  # document-aware block-causal mask and reset position IDs are honored. NeMo
-  # AutoModel 0.5.0's FlashAttention NEAT patch does not support Llama/SmolLM2.
+  # Qwen3.5 uses gated linear attention for three out of every four layers and
+  # full attention for the fourth. NeMo's native implementation isolates both
+  # layer types using the indexed packed mask. The smaller MLP keeps this at
+  # approximately 135M parameters despite Qwen3.5's gated projections.
   _target_: nemo_automodel.NeMoAutoModelForCausalLM.from_config
-  config: HuggingFaceTB/SmolLM2-135M
-  force_hf: true
-  attn_implementation: sdpa
+  config:
+    _target_: transformers.models.qwen3_5.configuration_qwen3_5.Qwen3_5TextConfig
+    architectures:
+      - Qwen3_5ForCausalLM
+    vocab_size: 49152
+    hidden_size: 576
+    intermediate_size: 1152
+    num_hidden_layers: 30
+    num_attention_heads: 9
+    num_key_value_heads: 3
+    head_dim: 64
+    linear_key_head_dim: 64
+    linear_value_head_dim: 64
+    linear_num_key_heads: 9
+    linear_num_value_heads: 9
+    max_position_embeddings: 8192
+    tie_word_embeddings: true
+    bos_token_id: 0
+    eos_token_id: 0
+    dtype: bfloat16
+  # Use NeMo's existing Qwen3.5 implementation: unlike the HF implementation,
+  # it resets both full-attention and gated-linear-attention state at indexed
+  # packed-sequence boundaries.
+  force_hf: false
+  torch_dtype: bfloat16
+  attn_implementation: flash_attention_2
+  use_sdpa_patching: false
 
 dataset:
-  _target_: datasets/fineweb_edu_mini_maker.py:make_fineweb_edu
-  dataset_path: /data/datasets/fineweb_edu_mini
-  split: train
-  seq_length: 1024
-  padding: false
-  truncation: true
-  cache_size: 10000
-  tokenizer:
-    _target_: transformers.AutoTokenizer.from_pretrained
-    pretrained_model_name_or_path: HuggingFaceTB/SmolLM2-135M
+  # Stream fixed-length slices from memory-mapped NanoGPT shards and scan only
+  # the current slice for document boundaries. Token 0 is both BOS and EOS for
+  # this corpus/tokenizer, matching the indexed masks produced by NEAT packing.
+  _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
+  file_pattern: /home/alex/fineweb_edu_mini/train-*.bin
+  seq_len: 2048
+  bos_token: 0
+  eos_token: 0
+  shuffle_files: true
+  attn_implementation: flash_attention_2
 
 packed_sequence:
-  packing_strategy: neat
-  packed_sequence_size: 1024
-  drop_long_samples: false
-  max_packs: null
-  num_proc: 1
+  # The project dataset emits pre-packed NEAT metadata itself. Keep recipe-level
+  # packing disabled because it would eagerly materialize this unbounded stream.
+  packed_sequence_size: 0
 
 dataloader:
   _target_: torchdata.stateful_dataloader.StatefulDataLoader
-  shuffle: true
-  num_workers: 0
+  shuffle: false
+  num_workers: 2
   pin_memory: true
+  batch_size: 1
+  # A direct callable remains pickleable when NeMo starts worker processes.
+  # A nested `_target_` makes NeMo wrap this in a local lambda, which cannot be
+  # serialized with Python's spawn multiprocessing mode.
+  collate_fn: picoformer.datasets.packed_nanogpt.packed_nanogpt_collater
 
 loss_fn:
   _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy

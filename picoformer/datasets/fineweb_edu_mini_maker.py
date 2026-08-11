@@ -1,6 +1,7 @@
 """NeMo AutoModel dataset factory for the local FineWeb-Edu mini subset.
 
-The Parquet files consumed here are produced by ``fineweb_edu_mini.py``.
+The Parquet files consumed here are produced by
+``picoformer.datasets.fineweb_edu_mini``.
 Unlike that script's optional NanoGPT output, this factory keeps the Hugging
 Face dataset as its backing store and tokenizes documents lazily.
 """
@@ -78,7 +79,7 @@ def make_fineweb_edu(
         fp8: Accepted for compatibility with NeMo dataset factories; unused.
         split: Hugging Face split expression, normally ``"train"``.
         dataset_name: Directory containing the ``train-*.parquet`` files made
-            by ``fineweb_edu_mini.py``.
+            by ``picoformer.datasets.fineweb_edu_mini``.
         padding: Hugging Face tokenizer padding strategy.
         truncation: Hugging Face tokenizer truncation strategy.
         cache_size: Number of lazily tokenized samples cached in memory. Use
