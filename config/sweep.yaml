@@ -1,0 +1,58 @@
+# Hydra composes the existing AutoModel training config, creates one resolved
+# YAML per grid point, and then picoformer.sweep launches that YAML.
+defaults:
+  - test
+  - _self_
+
+
+# Each Hydra job receives its own checkpoint directory, preventing sweep jobs
+# from restoring or overwriting one another.
+checkpoint:
+  checkpoint_dir: ${hydra:runtime.output_dir}/checkpoints
+
+sweep:
+  nproc_per_node: 2
+  generated_config_name: automodel.yaml
+  dry_run: false
+
+step_scheduler:
+  global_batch_size: 256
+  local_batch_size: 4
+  max_steps: 500
+
+model:
+  # Make a smaller model (20M)
+  config:
+    vocab_size: 49152
+    hidden_size: 36
+    intermediate_size: 72
+    num_hidden_layers: 30
+    num_attention_heads: 9
+    num_key_value_heads: 3
+    head_dim: 64
+    linear_key_head_dim: 64
+    linear_value_head_dim: 64
+    linear_num_key_heads: 9
+    linear_num_value_heads: 9
+    max_position_embeddings: 8192
+    tie_word_embeddings: true
+    bos_token_id: 0
+    eos_token_id: 0
+
+# Keep the two AutoModel micro-batch settings synchronized. Sweep only
+# step_scheduler.local_batch_size below; this value follows automatically.
+dataloader:
+  batch_size: ${step_scheduler.local_batch_size}
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: /data/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}/single
+  sweep:
+    dir: /data/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}_${hydra.job.override_dirname}
+  sweeper:
+    params:
+      # Edit these comma-separated values to change the grid.
+      optimizer.lr: 2e-2, 1e-2, 5e-3, 1e-3, 5e-4, 1e-4

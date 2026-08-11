@@ -4,9 +4,13 @@
 
 recipe: TrainFinetuneRecipeForNextTokenPrediction
 
+wandb:
+  project: "LLM_Test"
+  entity: "federated_learning_multi_hop"
+
 step_scheduler:
   global_batch_size: 64
-  local_batch_size: 1
+  local_batch_size: 2
   ckpt_every_steps: 100
   num_epochs: 1
   max_steps: 9500
@@ -71,7 +75,7 @@ dataloader:
   shuffle: false
   num_workers: 2
   pin_memory: true
-  batch_size: 1
+  batch_size: 2
   # A direct callable remains pickleable when NeMo starts worker processes.
   # A nested `_target_` makes NeMo wrap this in a local lambda, which cannot be
   # serialized with Python's spawn multiprocessing mode.
@@ -81,6 +85,9 @@ loss_fn:
   _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy
 
 optimizer:
+  # Use the optimizer from NeMo AutoModel's Qwen3.5 FSDP2 examples. FlashAdamW
+  # cannot checkpoint parameters whose sharded dimension is uneven (for this
+  # model, the 9 linear-attention heads split over 2 data-parallel ranks).
   _target_: torch.optim.AdamW
   lr: 2.0e-4
   betas: [0.9, 0.95]
@@ -91,5 +98,10 @@ checkpoint:
   checkpoint_dir: /data/picoformer
 
 distributed:
-  strategy: ddp
-  dp_size: 2
+  # FSDP2 materializes and initializes custom from-config models before
+  # training. The DDP path left the native Qwen3.5 parameters uninitialized.
+  strategy: fsdp2
+  dp_size: none
+  tp_size: 1
+  cp_size: 1
+  sequence_parallel: false

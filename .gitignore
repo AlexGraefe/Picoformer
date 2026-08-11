@@ -211,6 +211,9 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Generated Hydra sweep configs, logs, and checkpoints
+/outputs/sweeps/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
