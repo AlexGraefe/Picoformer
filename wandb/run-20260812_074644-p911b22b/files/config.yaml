@@ -1,0 +1,154 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            gpx73yhpigygvod0d10cmhxw1yvci3f7:
+                args:
+                    - /home/DSME/mf724021/data/picoformer/outputs/sweeps/2026-08-12_07-46-40/0_optimizer.lr=0.02/automodel.yaml
+                    - --nproc-per-node
+                    - "2"
+                codePath: .venv/bin/automodel
+                codePathLocal: .venv/bin/automodel
+                cpu_count: 16
+                cpu_count_logical: 32
+                cudaVersion: "13.2"
+                disk:
+                    /:
+                        total: "1966736678912"
+                        used: "32627937280"
+                executable: /home/DSME/mf724021/Picoformer/.venv/bin/python3
+                git:
+                    commit: f924f4b80bedf0480febf1231bbf5717563cc4e7
+                    remote: git@github.com:AlexGraefe/Picoformer.git
+                gpu: NVIDIA RTX PRO 6000 Blackwell Workstation Edition
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Blackwell
+                      cudaCores: 24064
+                      memoryTotal: "102641958912"
+                      name: NVIDIA RTX PRO 6000 Blackwell Workstation Edition
+                      uuid: GPU-f5323e5a-971d-f762-56d2-a1797b5c692c
+                host: ws-gpu001
+                memory:
+                    total: "130146639872"
+                os: Linux-7.0.0-27-generic-x86_64-with-glibc2.43
+                program: /home/DSME/mf724021/Picoformer/.venv/bin/automodel
+                python: CPython 3.14.6
+                root: /home/DSME/mf724021/Picoformer
+                startedAt: "2026-08-12T05:46:44.092600Z"
+                writerId: gpx73yhpigygvod0d10cmhxw1yvci3f7
+        m: []
+        python_version: 3.14.6
+        t:
+            "1":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 51
+                - 53
+            "2":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 51
+                - 53
+            "3":
+                - 13
+                - 15
+                - 16
+                - 61
+            "4": 3.14.6
+            "5": 0.28.1
+            "6": 5.8.1
+            "12": 0.28.1
+            "13": linux-x86_64
+base_dir:
+    value: /home/DSME/mf724021/data
+checkpoint:
+    value:
+        checkpoint_dir: /home/DSME/mf724021/data/picoformer/outputs/sweeps/2026-08-12_07-46-40/0_optimizer.lr=0.02/checkpoints
+dataloader:
+    value:
+        _target_: torchdata.stateful_dataloader.stateful_dataloader.StatefulDataLoader
+        batch_size: 4
+        collate_fn: picoformer.datasets.packed_nanogpt.packed_nanogpt_collater
+        num_workers: 2
+        pin_memory: true
+        shuffle: false
+dataset:
+    value:
+        _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
+        attn_implementation: flash_attention_2
+        bos_token: 0
+        eos_token: 0
+        file_pattern: /home/DSME/mf724021/data/datasets/fineweb_edu_mini/train-*.bin
+        seq_len: 2048
+        shuffle_files: true
+dist_env:
+    value:
+        backend: nccl
+        timeout_minutes: 10
+distributed:
+    value:
+        cp_size: 1
+        dp_size: null
+        sequence_parallel: false
+        strategy: fsdp2
+        tp_size: 1
+loss_fn:
+    value:
+        _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy
+model:
+    value:
+        _target_: nemo_automodel._transformers.auto_model._BaseNeMoAutoModelClass.from_config
+        attn_implementation: flash_attention_2
+        config:
+            _target_: transformers.models.qwen3_5.configuration_qwen3_5.Qwen3_5TextConfig
+            architectures:
+                - Qwen3_5ForCausalLM
+            bos_token_id: 0
+            dtype: bfloat16
+            eos_token_id: 0
+            head_dim: 64
+            hidden_size: 36
+            intermediate_size: 72
+            linear_key_head_dim: 64
+            linear_num_key_heads: 9
+            linear_num_value_heads: 9
+            linear_value_head_dim: 64
+            max_position_embeddings: 8192
+            num_attention_heads: 9
+            num_hidden_layers: 30
+            num_key_value_heads: 3
+            tie_word_embeddings: true
+            vocab_size: 49152
+        force_hf: false
+        torch_dtype: bfloat16
+        use_sdpa_patching: false
+optimizer:
+    value:
+        _target_: torch.optim.adamw.AdamW
+        betas:
+            - 0.9
+            - 0.95
+        eps: 1e-08
+        lr: 0.02
+        weight_decay: 0.1
+packed_sequence:
+    value:
+        packed_sequence_size: 0
+recipe:
+    value: TrainFinetuneRecipeForNextTokenPrediction
+step_scheduler:
+    value:
+        ckpt_every_steps: 100
+        global_batch_size: 256
+        local_batch_size: 4
+        max_steps: 500
+        num_epochs: 1
+wandb:
+    value:
+        entity: federated_learning_multi_hop
+        project: LLM_Test

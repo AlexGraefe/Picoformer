@@ -1,0 +1,11 @@
+# AutoModel builds separate Muon matrix-parameter and Lion scalar/embedding
+# parameter groups. The project config additionally splits those groups by
+# dtype because this model intentionally mixes FP32 and BF16 parameters, while
+# Dion's foreach kernels require every tensor in a batch to share one dtype.
+_target_: picoformer.optim.MixedPrecisionMuonConfig
+lr: ${optimizer.lr}
+weight_decay: 0.1
+mu: 0.95
+betas: [0.9, 0.95]
+epsilon: 1.0e-8
+scalar_opt: lion

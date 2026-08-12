@@ -1,0 +1,44 @@
+{
+  "os":  "Linux-7.0.0-27-generic-x86_64-with-glibc2.43",
+  "python":  "CPython 3.14.6",
+  "startedAt":  "2026-08-12T09:49:40.067298Z",
+  "args":  [
+    "/home/DSME/mf724021/data/picoformer/outputs/sweeps/2026-08-12_11-49-18/1_optimizer.lr=0.01,sweep_optimizer=muon/automodel.yaml",
+    "--nproc-per-node",
+    "1"
+  ],
+  "program":  "/home/DSME/mf724021/Picoformer/.venv/bin/automodel",
+  "codePath":  ".venv/bin/automodel",
+  "codePathLocal":  ".venv/bin/automodel",
+  "git":  {
+    "remote":  "git@github.com:AlexGraefe/Picoformer.git",
+    "commit":  "f924f4b80bedf0480febf1231bbf5717563cc4e7"
+  },
+  "root":  "/home/DSME/mf724021/Picoformer",
+  "host":  "ws-gpu001",
+  "executable":  "/home/DSME/mf724021/Picoformer/.venv/bin/python3",
+  "cpu_count":  16,
+  "cpu_count_logical":  32,
+  "gpu":  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1966736678912",
+      "used":  "32628240384"
+    }
+  },
+  "memory":  {
+    "total":  "130146639872"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+      "memoryTotal":  "102641958912",
+      "cudaCores":  24064,
+      "architecture":  "Blackwell",
+      "uuid":  "GPU-f5323e5a-971d-f762-56d2-a1797b5c692c"
+    }
+  ],
+  "cudaVersion":  "13.2",
+  "writerId":  "nm1ckvcoev7ywkf1tyc58ujc9cz6ak30"
+}

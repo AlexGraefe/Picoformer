@@ -55,6 +55,12 @@ def automodel_command(config_path: Path, nproc_per_node: int) -> list[str]:
 def write_automodel_config(cfg: DictConfig, destination: Path) -> None:
     """Write a resolved training config without Hydra launcher-only settings."""
     training_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=False))
+    # Optimizer choices live outside the inherited AutoModel config so Hydra can
+    # switch schemas cleanly (AdamW's ``eps`` vs Muon's ``epsilon``, for example).
+    training_cfg["optimizer"] = OmegaConf.to_container(
+        training_cfg["sweep_optimizer"], resolve=True
+    )
+    del training_cfg["sweep_optimizer"]
     del training_cfg["sweep"]
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(OmegaConf.to_yaml(training_cfg, resolve=True))

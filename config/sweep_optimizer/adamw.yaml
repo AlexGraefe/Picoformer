@@ -1,0 +1,7 @@
+# AdamW settings materialized as the AutoModel optimizer block by the sweep
+# launcher. The learning rate continues to come from the sweep grid.
+_target_: torch.optim.AdamW
+lr: ${optimizer.lr}
+betas: [0.9, 0.95]
+eps: 1.0e-8
+weight_decay: 0.1

@@ -515,6 +515,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dion"
+version = "0.1.0"
+source = { git = "https://github.com/microsoft/dion.git#0a059a4542e5aa74b40dcd1dce363836c7afcd48" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+]
+
+[[package]]
 name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1743,6 +1752,7 @@ source = { editable = "." }
 dependencies = [
     { name = "causal-conv1d" },
     { name = "datasets" },
+    { name = "dion" },
     { name = "flash-attn" },
     { name = "flash-linear-attention" },
     { name = "hydra-core" },
@@ -1757,6 +1767,7 @@ dependencies = [
 requires-dist = [
     { name = "causal-conv1d", specifier = ">=1.6.0" },
     { name = "datasets", specifier = ">=4.0.0" },
+    { name = "dion", git = "https://github.com/microsoft/dion.git" },
     { name = "flash-attn", url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.47/flash_attn-2.8.3+cu132torch2.13-cp314-cp314-linux_x86_64.whl" },
     { name = "flash-linear-attention", specifier = ">=0.4.2" },
     { name = "hydra-core", specifier = ">=1.3.2" },

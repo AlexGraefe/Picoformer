@@ -24,7 +24,7 @@ model:
   # full attention for the fourth. NeMo's native implementation isolates both
   # layer types using the indexed packed mask. The smaller MLP keeps this at
   # approximately 135M parameters despite Qwen3.5's gated projections.
-  _target_: nemo_automodel.NeMoAutoModelForCausalLM.from_config
+  _target_: picoformer.models.qwen3_5.PicoformerAutoModelForCausalLM.from_config
   config:
     _target_: transformers.models.qwen3_5.configuration_qwen3_5.Qwen3_5TextConfig
     architectures:
@@ -58,7 +58,7 @@ dataset:
   # the current slice for document boundaries. Token 0 is both BOS and EOS for
   # this corpus/tokenizer, matching the indexed masks produced by NEAT packing.
   _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
-  file_pattern: /home/alex/fineweb_edu_mini/train-*.bin
+  file_pattern: /data/fineweb_edu_mini/train-*.bin
   seq_len: 2048
   bos_token: 0
   eos_token: 0
@@ -95,7 +95,7 @@ optimizer:
   weight_decay: 0.1
 
 checkpoint:
-  checkpoint_dir: /data/picoformer
+  checkpoint_dir: /home/DSME/mf724021/data/picoformer
 
 distributed:
   # FSDP2 materializes and initializes custom from-config models before

@@ -22,5 +22,16 @@ uv run picoformer-sweep --multirun \
   step_scheduler.local_batch_size=1,2,4
 ```
 
+AdamW is used by default. Select Muon for a run, or include both optimizers in
+the grid, with Hydra's `sweep_optimizer` choice:
+
+```bash
+uv run picoformer-sweep --multirun sweep_optimizer=muon
+uv run picoformer-sweep --multirun sweep_optimizer=adamw,muon
+```
+
+The Muon choice uses Lion for embeddings, normalization weights, and other
+non-matrix parameters; matrix parameters use Muon.
+
 To inspect the generated YAML files without starting training, add
 `sweep.dry_run=true`.

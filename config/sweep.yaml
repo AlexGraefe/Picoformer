@@ -2,27 +2,33 @@
 # YAML per grid point, and then picoformer.sweep launches that YAML.
 defaults:
   - test
+  - sweep_optimizer: muon
   - _self_
 
+base_dir: /home/DSME/mf724021/data
 
 # Each Hydra job receives its own checkpoint directory, preventing sweep jobs
 # from restoring or overwriting one another.
 checkpoint:
   checkpoint_dir: ${hydra:runtime.output_dir}/checkpoints
 
+dataset:
+  file_pattern: ${base_dir}/datasets/fineweb_edu_mini/train-*.bin
+
 sweep:
-  nproc_per_node: 2
+  nproc_per_node: 1
   generated_config_name: automodel.yaml
   dry_run: false
 
 step_scheduler:
   global_batch_size: 256
-  local_batch_size: 4
+  local_batch_size: 32
   max_steps: 500
 
 model:
   # Make a smaller model (20M)
   config:
+    initializer_range: 0.02
     vocab_size: 49152
     hidden_size: 36
     intermediate_size: 72
@@ -48,11 +54,12 @@ hydra:
   job:
     chdir: false
   run:
-    dir: /data/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}/single
+    dir: ${base_dir}/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}/single
   sweep:
-    dir: /data/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${base_dir}/picoformer/outputs/sweeps/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${hydra.job.num}_${hydra.job.override_dirname}
   sweeper:
     params:
       # Edit these comma-separated values to change the grid.
-      optimizer.lr: 2e-2, 1e-2, 5e-3, 1e-3, 5e-4, 1e-4
+      optimizer.lr: 2e-2
+      sweep_optimizer: muon, adamw
