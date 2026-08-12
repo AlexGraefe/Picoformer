@@ -19,11 +19,26 @@ sweep:
   nproc_per_node: 1
   generated_config_name: automodel.yaml
   dry_run: false
+  # Training steps are ceil(num_tokens / (global batch size * sequence length)).
+  num_tokens: 268435456
+  # Fraction of training steps used for the final linear WSD decay.
+  final_decay_ratio: 0.1
+  # The generated scheduler ends at this percentage of each swept base LR.
+  final_lr_percentage: 20.0
 
 step_scheduler:
   global_batch_size: 256
   local_batch_size: 32
-  max_steps: 500
+  # Derived from sweep.num_tokens when the generated config is written.
+  max_steps: 0
+
+lr_scheduler:
+  lr_warmup_steps: 25
+  # Derived alongside step_scheduler.max_steps; warmup remains unchanged.
+  lr_decay_steps: 0
+  lr_decay_style: WSD
+  wsd_decay_steps: 0
+  lr_wsd_decay_style: linear
 
 model:
   # Make a smaller model (20M)
@@ -61,5 +76,5 @@ hydra:
   sweeper:
     params:
       # Edit these comma-separated values to change the grid.
-      optimizer.lr: 2e-2
+      optimizer.lr: 5e-2, 2e-2, 1e-2, 5e-3, 1e-3, 5e-4
       sweep_optimizer: muon, adamw

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import shutil
 import subprocess
 import sys
@@ -60,6 +61,35 @@ def write_automodel_config(cfg: DictConfig, destination: Path) -> None:
     training_cfg["optimizer"] = OmegaConf.to_container(
         training_cfg["sweep_optimizer"], resolve=True
     )
+    final_lr_percentage = float(training_cfg.sweep.final_lr_percentage)
+    if not 0.0 <= final_lr_percentage <= 100.0:
+        raise ValueError("sweep.final_lr_percentage must be between 0 and 100")
+    training_cfg.lr_scheduler.min_lr = (
+        float(training_cfg.optimizer.lr) * final_lr_percentage / 100.0
+    )
+
+    num_tokens = int(training_cfg.sweep.num_tokens)
+    global_batch_size = int(training_cfg.step_scheduler.global_batch_size)
+    sequence_length = int(training_cfg.dataset.seq_len)
+    final_decay_ratio = float(training_cfg.sweep.final_decay_ratio)
+    if num_tokens <= 0:
+        raise ValueError("sweep.num_tokens must be positive")
+    if global_batch_size <= 0:
+        raise ValueError("step_scheduler.global_batch_size must be positive")
+    if sequence_length <= 0:
+        raise ValueError("dataset.seq_len must be positive")
+    if not 0.0 <= final_decay_ratio <= 1.0:
+        raise ValueError("sweep.final_decay_ratio must be between 0 and 1")
+
+    tokens_per_step = global_batch_size * sequence_length
+    max_steps = math.ceil(num_tokens / tokens_per_step)
+    final_decay_steps = round(max_steps * final_decay_ratio)
+    if final_decay_ratio > 0.0:
+        final_decay_steps = max(1, final_decay_steps)
+
+    training_cfg.step_scheduler.max_steps = max_steps
+    training_cfg.lr_scheduler.lr_decay_steps = max_steps
+    training_cfg.lr_scheduler.wsd_decay_steps = final_decay_steps
     del training_cfg["sweep_optimizer"]
     del training_cfg["sweep"]
     destination.parent.mkdir(parents=True, exist_ok=True)

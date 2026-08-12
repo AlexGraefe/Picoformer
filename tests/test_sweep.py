@@ -23,6 +23,10 @@ class SweepTest(unittest.TestCase):
                     overrides=[
                         "sweep_optimizer=adamw",
                         "step_scheduler.local_batch_size=4",
+                        "step_scheduler.global_batch_size=16",
+                        "dataset.seq_len=128",
+                        "sweep.num_tokens=10241",
+                        "sweep.final_decay_ratio=0.4",
                         "optimizer.lr=0.0003",
                         f"checkpoint.checkpoint_dir={tmp_path}/checkpoints",
                     ],
@@ -36,8 +40,15 @@ class SweepTest(unittest.TestCase):
             self.assertNotIn("sweep_optimizer", generated)
             self.assertEqual(generated.optimizer._target_, "torch.optim.AdamW")
             self.assertEqual(generated.optimizer.lr, 0.0003)
+            self.assertEqual(generated.lr_scheduler.lr_decay_style, "WSD")
+            self.assertEqual(generated.lr_scheduler.lr_wsd_decay_style, "linear")
+            self.assertAlmostEqual(generated.lr_scheduler.min_lr, 0.00003)
             self.assertEqual(generated.step_scheduler.local_batch_size, 4)
             self.assertEqual(generated.dataloader.batch_size, 4)
+            self.assertEqual(generated.step_scheduler.max_steps, 6)
+            self.assertEqual(generated.lr_scheduler.lr_decay_steps, 6)
+            self.assertEqual(generated.lr_scheduler.wsd_decay_steps, 2)
+            self.assertEqual(generated.lr_scheduler.lr_warmup_steps, 25)
             self.assertEqual(
                 generated.checkpoint.checkpoint_dir, f"{tmp_path}/checkpoints"
             )
