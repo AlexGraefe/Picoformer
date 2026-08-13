@@ -88,6 +88,10 @@ def write_automodel_config(cfg: DictConfig, destination: Path) -> None:
         final_decay_steps = max(1, final_decay_steps)
 
     training_cfg.step_scheduler.max_steps = max_steps
+    # Validation is deliberately run at the last optimizer step.  Optuna uses
+    # this independent-dataset loss as its objective.
+    if "validation_dataset" in training_cfg:
+        training_cfg.step_scheduler.val_every_steps = max_steps
     training_cfg.lr_scheduler.lr_decay_steps = max_steps
     training_cfg.lr_scheduler.wsd_decay_steps = final_decay_steps
     del training_cfg["sweep_optimizer"]

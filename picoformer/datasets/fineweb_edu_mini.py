@@ -8,6 +8,7 @@ Example:
     python -m picoformer.datasets.fineweb_edu_mini \
         --output-dir data/datasets/fineweb_edu_mini \
         --num-tokens 5B \
+        --validation-tokens 10M \
         --tokenize
 
 The resulting directory can be loaded with:
@@ -37,6 +38,7 @@ DATASET_CONFIG = "fineweb-edu-dedup"
 DATASET_SPLIT = "train"
 DEFAULT_OUTPUT_DIR = Path("/data/datasets/fineweb_edu_mini")
 DEFAULT_NUM_TOKENS = 5_000_000_000
+DEFAULT_VALIDATION_TOKENS = 10_000_000
 PROGRESS_UPDATE_TOKENS = 10_000
 DEFAULT_TOKENIZER = "HuggingFaceTB/SmolLM2-135M"
 NANOGPT_MAGIC = 2788_95051
@@ -86,6 +88,12 @@ def parse_args() -> argparse.Namespace:
         help="Approximate tokens per Parquet shard (default: 500M).",
     )
     parser.add_argument(
+        "--validation-tokens",
+        type=parse_count,
+        default=DEFAULT_VALIDATION_TOKENS,
+        help="Minimum validation tokens to save after training data (default: 10M).",
+    )
+    parser.add_argument(
         "--shuffle-buffer-size",
         type=parse_count,
         default=100_000,
@@ -128,6 +136,7 @@ def write_shard(
     output_dir: Path,
     shard_index: int,
     features: Features | None,
+    split: str = "train",
 ) -> Features:
     """Write one Parquet shard and return its fixed Hugging Face schema."""
     if features is None:
@@ -138,7 +147,7 @@ def write_shard(
         features["text"] = Value("large_string")
 
     shard = Dataset.from_list(records, features=features)
-    output_path = output_dir / f"train-{shard_index:05d}.parquet"
+    output_path = output_dir / f"{split}-{shard_index:05d}.parquet"
     temporary_path = output_path.with_suffix(".parquet.incomplete")
     shard.to_parquet(temporary_path)
     temporary_path.replace(output_path)
@@ -164,14 +173,20 @@ def build_subset(args: argparse.Namespace) -> None:
         streaming=True,
     ).shuffle(seed=args.seed, buffer_size=args.shuffle_buffer_size)
 
+    split_names = ("train", "validation")
+    target_tokens = {
+        "train": int(args.num_tokens),
+        "validation": int(args.validation_tokens),
+    }
     records: list[dict[str, Any]] = []
     shard_tokens = 0
-    total_tokens = 0
-    total_documents = 0
-    shard_index = 0
+    split_tokens = {name: 0 for name in split_names}
+    split_documents = {name: 0 for name in split_names}
+    shard_indices = {name: 0 for name in split_names}
+    current_split_index = 0
     features: Features | None = None
     progress = tqdm(
-        total=args.num_tokens,
+        total=sum(target_tokens.values()),
         desc="Streaming FineWeb-Edu",
         unit="tok",
         unit_scale=True,
@@ -181,47 +196,66 @@ def build_subset(args: argparse.Namespace) -> None:
 
     try:
         for record in source:
+            split = split_names[current_split_index]
             token_count = record_token_count(record)
             if token_count == 0 or not record.get("text"):
                 continue
 
             records.append(record)
             shard_tokens += token_count
-            total_tokens += token_count
-            total_documents += 1
+            split_tokens[split] += token_count
+            split_documents[split] += 1
 
-            target_progress = min(total_tokens, args.num_tokens)
+            completed_before = sum(target_tokens[name] for name in split_names[:current_split_index])
+            target_progress = completed_before + min(split_tokens[split], target_tokens[split])
             pending_tokens = target_progress - int(progress.n)
             complete_updates = pending_tokens // PROGRESS_UPDATE_TOKENS
             if complete_updates:
                 progress.update(complete_updates * PROGRESS_UPDATE_TOKENS)
-            if target_progress == args.num_tokens and progress.n < args.num_tokens:
-                progress.update(args.num_tokens - progress.n)
+            total_target = sum(target_tokens.values())
+            if target_progress == total_target and progress.n < total_target:
+                progress.update(total_target - progress.n)
 
-            if shard_tokens >= args.tokens_per_shard or total_tokens >= args.num_tokens:
-                features = write_shard(records, output_dir, shard_index, features)
+            split_complete = split_tokens[split] >= target_tokens[split]
+            if shard_tokens >= args.tokens_per_shard or split_complete:
+                features = write_shard(
+                    records, output_dir, shard_indices[split], features, split=split
+                )
                 records = []
                 shard_tokens = 0
-                shard_index += 1
+                shard_indices[split] += 1
                 progress.set_postfix(
-                    documents=f"{total_documents:,}",
-                    shards=shard_index,
+                    split=split,
+                    documents=f"{split_documents[split]:,}",
+                    shards=shard_indices[split],
                     refresh=True,
                 )
 
-            if total_tokens >= args.num_tokens:
-                break
+            if split_complete:
+                if split == "train":
+                    # Continue the same shuffled stream, so validation contains
+                    # only documents not consumed by training.
+                    current_split_index += 1
+                    tqdm.write("Training split complete; generating validation split.")
+                else:
+                    break
         else:
+            split = split_names[current_split_index]
             raise RuntimeError(
-                f"stream ended after {total_tokens:,} tokens, before the "
-                f"requested {args.num_tokens:,} tokens"
+                f"stream ended after {split_tokens[split]:,} {split} tokens, before the "
+                f"requested {target_tokens[split]:,} tokens"
             )
     finally:
         progress.close()
 
     if records:
-        features = write_shard(records, output_dir, shard_index, features)
-        shard_index += 1
+        split = split_names[current_split_index]
+        features = write_shard(records, output_dir, shard_indices[split], features, split=split)
+        shard_indices[split] += 1
+
+    total_tokens = sum(split_tokens.values())
+    total_documents = sum(split_documents.values())
+    shard_count = sum(shard_indices.values())
 
     manifest = {
         "dataset_id": DATASET_ID,
@@ -229,10 +263,20 @@ def build_subset(args: argparse.Namespace) -> None:
         "split": DATASET_SPLIT,
         "streaming": True,
         "target_tokens": args.num_tokens,
+        "validation_target_tokens": args.validation_tokens,
         "actual_tokens": total_tokens,
         "tokenizer_for_counts": "gpt2 (counts supplied by the source dataset)",
         "documents": total_documents,
-        "parquet_shards": shard_index,
+        "parquet_shards": shard_count,
+        "splits": {
+            name: {
+                "target_tokens": target_tokens[name],
+                "actual_tokens": split_tokens[name],
+                "documents": split_documents[name],
+                "parquet_shards": shard_indices[name],
+            }
+            for name in split_names
+        },
         "shuffle_buffer_size": args.shuffle_buffer_size,
         "seed": args.seed,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -242,7 +286,7 @@ def build_subset(args: argparse.Namespace) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(
         f"Done: saved {total_documents:,} documents and {total_tokens:,} tokens "
-        f"across {shard_index:,} Parquet shards in {output_dir}",
+        f"across {shard_count:,} Parquet shards in {output_dir}",
         flush=True,
     )
 
@@ -250,7 +294,10 @@ def build_subset(args: argparse.Namespace) -> None:
 def has_saved_subset(output_dir: Path) -> bool:
     """Return whether a completed local Hugging Face subset is present."""
     manifest_path = output_dir / "manifest.json"
-    parquet_paths = sorted(output_dir.glob("*.parquet"))
+    # Preserve generation order: tokenize training first, then validation.
+    parquet_paths = sorted(output_dir.glob("train-*.parquet")) + sorted(
+        output_dir.glob("validation-*.parquet")
+    )
     if not manifest_path.is_file() or not parquet_paths:
         return False
 

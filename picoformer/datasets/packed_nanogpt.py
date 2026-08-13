@@ -11,6 +11,7 @@ into RAM for each yielded sample.
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from itertools import islice
 
 from nemo_automodel.components.datasets.llm.nanogpt_dataset import (
     NanogptDataset,
@@ -110,6 +111,7 @@ class PackedNanogptDataset(NanogptDataset):
         eos_token: int | Sequence[int] | None = None,
         shuffle_files: bool = False,
         attn_implementation: str = "flash_attention_2",
+        max_samples: int | None = None,
     ) -> None:
         if seq_len <= 0:
             raise ValueError("seq_len must be positive")
@@ -128,6 +130,9 @@ class PackedNanogptDataset(NanogptDataset):
         self.document_bos_tokens = bos_token
         self.document_eos_tokens = eos_token
         self.attn_implementation = attn_implementation
+        if max_samples is not None and max_samples <= 0:
+            raise ValueError("max_samples must be positive")
+        self.max_samples = max_samples
 
         # The recipe normally applies this patch only while eagerly running
         # NEAT. Our data is pre-packed, so configure the same model-side support
@@ -173,6 +178,15 @@ class PackedNanogptDataset(NanogptDataset):
                 "position_ids": position_ids,
             }
             pos += self.seq_len
+
+    def __iter__(self) -> Iterator[dict]:
+        samples = super().__iter__()
+        if self.max_samples is None:
+            yield from samples
+        else:
+            # The parent stream repeats forever. Validation needs a bounded
+            # epoch; the cap applies per data-loader worker/rank.
+            yield from islice(samples, self.max_samples)
 
 
 def packed_nanogpt_collater(batch: list[dict]) -> dict:

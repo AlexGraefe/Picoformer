@@ -15,6 +15,26 @@ checkpoint:
 dataset:
   file_pattern: ${base_dir}/datasets/fineweb_edu_mini/train-*.bin
 
+# This split must be independent of training. Its final loss is the Optuna
+# objective; the launcher schedules validation on the last training step.
+validation_dataset:
+  _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
+  file_pattern: ${base_dir}/datasets/fineweb_edu_mini/validation-*.bin
+  seq_len: ${dataset.seq_len}
+  bos_token: 0
+  eos_token: 0
+  shuffle_files: false
+  attn_implementation: flash_attention_2
+  max_samples: 512
+
+validation_dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  shuffle: false
+  num_workers: 2
+  pin_memory: true
+  batch_size: ${step_scheduler.local_batch_size}
+  collate_fn: picoformer.datasets.packed_nanogpt.packed_nanogpt_collater
+
 sweep:
   nproc_per_node: 1
   generated_config_name: automodel.yaml
@@ -24,7 +44,7 @@ sweep:
   # Fraction of training steps used for the final linear WSD decay.
   final_decay_ratio: 0.1
   # The generated scheduler ends at this percentage of each swept base LR.
-  final_lr_percentage: 20.0
+  final_lr_percentage: 10.0
 
 step_scheduler:
   global_batch_size: 256

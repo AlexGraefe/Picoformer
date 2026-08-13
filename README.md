@@ -35,3 +35,30 @@ non-matrix parameters; matrix parameters use Muon.
 
 To inspect the generated YAML files without starting training, add
 `sweep.dry_run=true`.
+
+## Compute-aware hyperparameter scaling laws
+
+`picoformer-scaling` runs a separate Optuna study for each model-size and
+training-token pair in `config/scaling.yaml`. Every trial uses Muon and searches
+learning rate, weight decay, and global batch size. The objective is the final
+loss on the independent `validation-*.bin` split, not training loss.
+
+```bash
+uv run picoformer-scaling --config config/scaling.yaml
+```
+
+Each study is resumable through its SQLite database. The output directory gets:
+
+- `best_settings.csv`: exact best trial plus the geometric median of all trials
+  within 0.25% of its validation loss;
+- `best_overall.json`: the model size, token count, and Muon hyperparameters
+  that achieved the lowest validation loss across all scale points;
+- `power_laws.json`: coefficients, exponents, and log-space R-squared for
+  `h(C) = a C^b`, using `C = 6 N D`;
+- `power_laws.png`: learning-rate, weight-decay, and batch-size log-log fits;
+- per-trial generated configs, logs, checkpoints, and validation metrics.
+
+The `num_parameters` values in `config/scaling.yaml` are the explicit `N` used
+for compute accounting. Keep them synchronized with the exact trainable count
+when changing the associated architecture. At least two scale points are
+required; four or more spanning multiple orders of magnitude are recommended.

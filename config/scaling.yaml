@@ -1,0 +1,36 @@
+# One independent Optuna study is run for every architecture/token pair below.
+training_config: sweep
+output_dir: /home/DSME/mf724021/data/picoformer/outputs/scaling
+nproc_per_node: 1
+# Initial per-device batch. Failed runs retry with 16, 8, 4, 2, then 1 while
+# preserving the sampled global batch size through gradient accumulation.
+local_batch_size: 32
+n_trials: 20
+seed: 42
+near_optimal_relative_margin: 0.0025
+
+search_space:
+  learning_rate: {low: 1.0e-4, high: 5.0e-2}
+  weight_decay: {low: 1.0e-3, high: 0.3}
+  global_batch_size: [2, 4, 8, 16, 32, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
+
+# num_parameters is an explicit, auditable N used in C=6ND. Update it with the
+# exact trainable parameter count if you change an architecture. Architecture
+# values are applied under model.config in config/sweep.yaml.
+scales:
+  - name: qwen3_5_5m_50m
+    num_parameters: 5098474
+    num_tokens: 150_000_000
+    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
+  - name: qwen3_5_9m_100m
+    num_parameters: 9260702
+    num_tokens: 250_000_000
+    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
+  - name: qwen3_5_20m_100m
+    num_parameters: 19834206
+    num_tokens: 250_000_000
+    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
+  - name: qwen3_5_29m_200m
+    num_parameters: 28732014
+    num_tokens: 250_000_000
+    architecture: {hidden_size: 176, intermediate_size: 352, num_hidden_layers: 30}

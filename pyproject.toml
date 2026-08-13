@@ -13,6 +13,8 @@ dependencies = [
     "hydra-core>=1.3.2",
     "nemo-automodel==0.5.0",
     "numpy>=2.5.2",
+    "optuna>=4.5.0",
+    "matplotlib>=3.10.0",
     "pip>=26.2.1",
     "tqdm>=4.67.1",
     "transformers>=5.8.0",
@@ -20,6 +22,8 @@ dependencies = [
 
 [project.scripts]
 picoformer-sweep = "picoformer.sweep:main"
+picoformer-scaling = "picoformer.scaling:main"
+picoformer-plot-study = "picoformer.plot_study:main"
 
 [build-system]
 requires = ["setuptools>=77"]
