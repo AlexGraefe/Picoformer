@@ -5,14 +5,14 @@ nproc_per_node: 1
 # Initial per-device batch. Failed runs retry with 16, 8, 4, 2, then 1 while
 # preserving the sampled global batch size through gradient accumulation.
 local_batch_size: 32
-n_trials: 20
+n_trials: 40
 seed: 42
 near_optimal_relative_margin: 0.0025
 
 search_space:
   learning_rate: {low: 1.0e-4, high: 5.0e-2}
   weight_decay: {low: 1.0e-3, high: 0.3}
-  global_batch_size: [2, 4, 8, 16, 32, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
+  global_batch_size: [8, 16, 32, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
 
 # num_parameters is an explicit, auditable N used in C=6ND. Update it with the
 # exact trainable parameter count if you change an architecture. Architecture
