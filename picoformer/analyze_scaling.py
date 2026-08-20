@@ -37,6 +37,31 @@ def compute_budget(num_parameters: int, num_tokens: int) -> float:
     return 6.0 * num_parameters * num_tokens
 
 
+def tokens_for_compute(compute_flops: float, num_parameters: int) -> int:
+    """Convert a FLOP target to the nearest token count using C = 6 N D."""
+    if not math.isfinite(compute_flops) or compute_flops <= 0 or num_parameters <= 0:
+        raise ValueError("compute_flops and num_parameters must be positive")
+    return max(1, round(compute_flops / (6.0 * num_parameters)))
+
+
+def scaling_points(cfg: DictConfig) -> list[DictConfig]:
+    """Expand configured model sizes and FLOP targets into study points."""
+    points: list[DictConfig] = []
+    for model_size in cfg.model_sizes:
+        for compute_flops in cfg.compute_flops:
+            points.append(OmegaConf.create({
+                "name": f"{model_size.name}_{float(compute_flops):.6g}flops",
+                "model_size": str(model_size.name),
+                "num_parameters": int(model_size.num_parameters),
+                "compute_flops": float(compute_flops),
+                "num_tokens": tokens_for_compute(
+                    float(compute_flops), int(model_size.num_parameters)
+                ),
+                "architecture": OmegaConf.to_container(model_size.architecture, resolve=True),
+            }))
+    return points
+
+
 def fit_power_law(compute_flops: Iterable[float], values: Iterable[float]) -> PowerLaw:
     """Fit a power law in log space and report log-space R squared."""
     x = np.asarray(list(compute_flops), dtype=float)
@@ -85,14 +110,14 @@ def representative_hparams(trials: Iterable[optuna.trial.FrozenTrial]) -> dict[s
     if not selected:
         raise ValueError("no near-optimal trials")
     result: dict[str, float] = {}
-    for name in ("learning_rate", "weight_decay", "global_batch_size"):
+    for name in ("learning_rate", "global_batch_size"):
         values = np.asarray([float(trial.params[name]) for trial in selected], dtype=float)
         result[name] = float(np.exp(np.median(np.log(values))))
     return result
 
 
 def study_name(scale: DictConfig) -> str:
-    return f"{scale.name}_{int(scale.num_parameters)}p_{int(scale.num_tokens)}t"
+    return f"{scale.model_size}_{int(scale.num_parameters)}p_{float(scale.compute_flops):.6g}flops"
 
 
 def fit_power_laws_by_model_size(
@@ -115,7 +140,7 @@ def fit_power_laws_by_model_size(
                 [float(row["compute_flops"]) for row in model_rows],
                 [float(row[f"near_optimal_{name}"]) for row in model_rows],
             )
-            for name in ("learning_rate", "weight_decay", "global_batch_size")
+            for name in ("learning_rate", "global_batch_size")
         }
     return laws_by_model_size
 
@@ -130,13 +155,12 @@ def plot_power_laws(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     labels = {
         "learning_rate": "Learning rate",
-        "weight_decay": "Weight decay",
         "global_batch_size": "Global batch size",
     }
-    for axis, (name, label) in zip(axes.flat[:3], labels.items(), strict=True):
+    for axis, (name, label) in zip(axes[:2], labels.items(), strict=True):
         for num_parameters, laws in laws_by_model_size.items():
             model_rows = [row for row in rows if int(row["num_parameters"]) == num_parameters]
             compute = np.asarray([float(row["compute_flops"]) for row in model_rows])
@@ -153,7 +177,7 @@ def plot_power_laws(
         axis.grid(True, which="both", alpha=0.25)
         axis.legend(fontsize=8)
 
-    loss_axis = axes.flat[3]
+    loss_axis = axes[2]
     for num_parameters in laws_by_model_size:
         model_rows = [row for row in rows if int(row["num_parameters"]) == num_parameters]
         compute = np.asarray([float(row["compute_flops"]) for row in model_rows])
@@ -218,7 +242,7 @@ def analyze(config_path: Path) -> Path:
     output_dir = Path(cfg.output_dir).expanduser().resolve()
     margin = float(cfg.near_optimal_relative_margin)
     rows: list[dict[str, Any]] = []
-    for scale in cfg.scales:
+    for scale in scaling_points(cfg):
         name = study_name(scale)
         database = (output_dir / name / "study.db").resolve()
         if not database.is_file():
@@ -232,11 +256,14 @@ def analyze(config_path: Path) -> Path:
                 "name": str(scale.name),
                 "num_parameters": int(scale.num_parameters),
                 "num_tokens": int(scale.num_tokens),
-                "compute_flops": compute_budget(int(scale.num_parameters), int(scale.num_tokens)),
+                "compute_flops": float(scale.compute_flops),
+                "actual_compute_flops": compute_budget(
+                    int(scale.num_parameters), int(scale.num_tokens)
+                ),
                 "best_validation_loss": float(study.best_value),
                 "near_optimal_trials": len(selected),
                 "best_learning_rate": float(best_params["learning_rate"]),
-                "best_weight_decay": float(best_params["weight_decay"]),
+                "fixed_weight_decay": float(cfg.weight_decay),
                 "best_global_batch_size": int(best_params["global_batch_size"]),
                 **{f"near_optimal_{key}": value for key, value in representative.items()},
             }

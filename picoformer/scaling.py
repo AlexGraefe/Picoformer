@@ -1,6 +1,6 @@
 """Optuna-based hyperparameter scaling-law experiments.
 
-Each architecture/token-budget pair gets an independent Optuna study.  This is
+Each architecture/FLOP-target pair gets an independent Optuna study.  This is
 important: a single study over compute budgets would merely learn that larger
 budgets tend to have lower loss rather than finding good hyperparameters at
 each scale.
@@ -25,6 +25,7 @@ from picoformer.analyze_scaling import (
     fit_power_laws_by_model_size as _fit_power_laws_by_model_size,
     near_optimal_trials,
     representative_hparams,
+    scaling_points,
     study_name as _study_name,
 )
 from picoformer.sweep import automodel_command, write_automodel_config
@@ -48,6 +49,21 @@ def read_validation_loss(path: Path) -> float:
 def _suggest_global_batch_size(trial: optuna.Trial, choices: list[int]) -> int:
     value = int(trial.suggest_categorical("global_batch_size", choices))
     return value
+
+
+def grid_search_space(
+    cfg: DictConfig, scale: DictConfig | None = None
+) -> dict[str, list[str | float | int]]:
+    """Return the discrete search space used by Optuna's grid sampler."""
+    search = cfg.search_space
+    result: dict[str, list[str | float | int]] = {
+        "learning_rate": [float(value) for value in search.learning_rate],
+        "global_batch_size": [int(value) for value in search.global_batch_size],
+    }
+    if scale is not None:
+        result["model_size"] = [str(scale.model_size)]
+        result["compute_flops"] = [float(scale.compute_flops)]
+    return result
 
 
 def local_batch_size_candidates(
@@ -76,15 +92,18 @@ class TrainingObjective:
         self.output_dir = output_dir
 
     def __call__(self, trial: optuna.Trial) -> float:
-        search = self.cfg.search_space
+        search = grid_search_space(self.cfg)
+        trial.suggest_categorical("model_size", [str(self.scale.model_size)])
+        trial.suggest_categorical("compute_flops", [float(self.scale.compute_flops)])
         lr = trial.suggest_float(
-            "learning_rate", float(search.learning_rate.low), float(search.learning_rate.high), log=True
+            "learning_rate",
+            min(search["learning_rate"]),
+            max(search["learning_rate"]),
+            log=True,
         )
-        weight_decay = trial.suggest_float(
-            "weight_decay", float(search.weight_decay.low), float(search.weight_decay.high), log=True
-        )
+        weight_decay = float(self.cfg.weight_decay)
         global_batch_size = _suggest_global_batch_size(
-            trial, [int(value) for value in search.global_batch_size]
+            trial, [int(value) for value in search["global_batch_size"]]
         )
         world_size = int(self.cfg.nproc_per_node)
         if global_batch_size % world_size:
@@ -140,7 +159,7 @@ def run(config_path: Path) -> Path:
     cfg = OmegaConf.load(config_path)
     output_dir = Path(cfg.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    for scale in cfg.scales:
+    for scale in scaling_points(cfg):
         name = _study_name(scale)
         scale_dir = output_dir / name
         scale_dir.mkdir(parents=True, exist_ok=True)
@@ -150,7 +169,9 @@ def run(config_path: Path) -> Path:
             storage=storage,
             direction="minimize",
             load_if_exists=True,
-            sampler=optuna.samplers.GPSampler(seed=int(cfg.seed), n_startup_trials=10),
+            sampler=optuna.samplers.GridSampler(
+                grid_search_space(cfg, scale), seed=int(cfg.seed)
+            ),
         )
         study.optimize(
             TrainingObjective(cfg, scale, scale_dir),

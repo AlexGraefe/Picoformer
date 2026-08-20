@@ -17,13 +17,10 @@ class PlotStudyTest(unittest.TestCase):
                 storage=f"sqlite:///{database}",
                 direction="minimize",
             )
-            study.enqueue_trial(
-                {"learning_rate": 1e-3, "weight_decay": 0.1, "global_batch_size": 32}
-            )
+            study.enqueue_trial({"learning_rate": 1e-3, "global_batch_size": 32})
 
             def objective(trial: optuna.Trial) -> float:
                 trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
-                trial.suggest_float("weight_decay", 1e-2, 1.0, log=True)
                 trial.suggest_categorical("global_batch_size", [32, 64])
                 return 2.5
 

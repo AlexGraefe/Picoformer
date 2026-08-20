@@ -48,7 +48,7 @@ class SweepTest(unittest.TestCase):
             self.assertEqual(generated.step_scheduler.max_steps, 6)
             self.assertEqual(generated.lr_scheduler.lr_decay_steps, 6)
             self.assertEqual(generated.lr_scheduler.wsd_decay_steps, 2)
-            self.assertEqual(generated.lr_scheduler.lr_warmup_steps, 25)
+            self.assertEqual(generated.lr_scheduler.lr_warmup_steps, 2)
             self.assertEqual(
                 generated.checkpoint.checkpoint_dir, f"{tmp_path}/checkpoints"
             )

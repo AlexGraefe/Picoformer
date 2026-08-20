@@ -83,6 +83,10 @@ def write_automodel_config(cfg: DictConfig, destination: Path) -> None:
 
     tokens_per_step = global_batch_size * sequence_length
     max_steps = math.ceil(num_tokens / tokens_per_step)
+    warmup_cap = int(training_cfg.lr_scheduler.lr_warmup_steps)
+    if warmup_cap < 0:
+        raise ValueError("lr_scheduler.lr_warmup_steps must be non-negative")
+    warmup_steps = min(math.ceil(max_steps * 0.2), warmup_cap)
     final_decay_steps = round(max_steps * final_decay_ratio)
     if final_decay_ratio > 0.0:
         final_decay_steps = max(1, final_decay_steps)
@@ -93,6 +97,7 @@ def write_automodel_config(cfg: DictConfig, destination: Path) -> None:
     if "validation_dataset" in training_cfg:
         training_cfg.step_scheduler.val_every_steps = max_steps
     training_cfg.lr_scheduler.lr_decay_steps = max_steps
+    training_cfg.lr_scheduler.lr_warmup_steps = warmup_steps
     training_cfg.lr_scheduler.wsd_decay_steps = final_decay_steps
     del training_cfg["sweep_optimizer"]
     del training_cfg["sweep"]

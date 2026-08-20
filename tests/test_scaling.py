@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 import optuna
+from omegaconf import OmegaConf
 
 from picoformer.analyze_scaling import (
     compute_budget,
@@ -11,14 +12,45 @@ from picoformer.analyze_scaling import (
     fit_power_laws_by_model_size,
     near_optimal_trials,
     representative_hparams,
+    scaling_points,
+    tokens_for_compute,
 )
 from picoformer.scaling import (
+    grid_search_space,
     local_batch_size_candidates,
     read_validation_loss,
 )
 
 
 class ScalingTest(unittest.TestCase):
+    def test_flop_targets_expand_across_model_sizes(self) -> None:
+        cfg = OmegaConf.create({
+            "compute_flops": [600.0, 1200.0],
+            "model_sizes": [{
+                "name": "tiny",
+                "num_parameters": 10,
+                "architecture": {"hidden_size": 8},
+            }],
+        })
+        points = scaling_points(cfg)
+        self.assertEqual([point.num_tokens for point in points], [10, 20])
+        self.assertEqual(tokens_for_compute(600.0, 10), 10)
+
+    def test_grid_search_space_uses_configured_candidates(self) -> None:
+        cfg = OmegaConf.create(
+            {"search_space": {
+                "learning_rate": [1e-4, 1e-3],
+                "global_batch_size": [32, 64],
+            }}
+        )
+        self.assertEqual(
+            grid_search_space(cfg),
+            {
+                "learning_rate": [1e-4, 1e-3],
+                "global_batch_size": [32, 64],
+            },
+        )
+
     def test_compute_budget(self) -> None:
         self.assertEqual(compute_budget(1_000_000_000, 2_000_000_000), 1.2e19)
 
@@ -47,7 +79,6 @@ class ScalingTest(unittest.TestCase):
                         "num_parameters": size,
                         "compute_flops": compute,
                         "near_optimal_learning_rate": coefficient * compute,
-                        "near_optimal_weight_decay": coefficient * compute,
                         "near_optimal_global_batch_size": coefficient * compute,
                     }
                 )
@@ -63,7 +94,6 @@ class ScalingTest(unittest.TestCase):
             "num_parameters": 10,
             "compute_flops": 100.0,
             "near_optimal_learning_rate": 0.1,
-            "near_optimal_weight_decay": 0.1,
             "near_optimal_global_batch_size": 32,
         }
         with self.assertRaisesRegex(ValueError, "model size 10"):
@@ -93,6 +123,7 @@ class ScalingTest(unittest.TestCase):
         representative = representative_hparams(selected)
         self.assertAlmostEqual(representative["learning_rate"], (1e-5) ** 0.5)
         self.assertAlmostEqual(representative["global_batch_size"], 64.0)
+        self.assertNotIn("weight_decay", representative)
 
     def test_read_final_validation_loss(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

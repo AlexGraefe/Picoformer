@@ -9,7 +9,7 @@ from pathlib import Path
 import optuna
 
 
-PARAMETERS = ("global_batch_size", "learning_rate", "weight_decay")
+PARAMETERS = ("global_batch_size", "learning_rate")
 
 
 def load_completed_trials(database: Path) -> tuple[str, list[optuna.trial.FrozenTrial]]:
@@ -44,13 +44,12 @@ def load_completed_trials(database: Path) -> tuple[str, list[optuna.trial.Frozen
 def _annotation(trial: optuna.trial.FrozenTrial) -> str:
     return (
         f"#{trial.number}  batch={int(trial.params['global_batch_size'])}\n"
-        f"lr={float(trial.params['learning_rate']):.3g}  "
-        f"wd={float(trial.params['weight_decay']):.3g}"
+        f"lr={float(trial.params['learning_rate']):.3g}"
     )
 
 
 def plot_study(database: Path, output: Path) -> Path:
-    """Create batch-size, learning-rate, and weight-decay versus loss plots."""
+    """Create batch-size and learning-rate versus loss plots."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -63,9 +62,8 @@ def plot_study(database: Path, output: Path) -> Path:
     plots = (
         ("global_batch_size", "Global batch size", False),
         ("learning_rate", "Learning rate", True),
-        ("weight_decay", "Weight decay", True),
     )
-    fig, axes = plt.subplots(1, 3, figsize=(19, 6), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
     losses = [float(trial.value) for trial in trials]
     for axis, (parameter, label, log_scale) in zip(axes, plots, strict=True):
         values = [float(trial.params[parameter]) for trial in trials]

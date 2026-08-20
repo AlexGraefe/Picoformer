@@ -105,7 +105,7 @@ lr_scheduler:
   min_lr: 2.0e-5
 
 checkpoint:
-  checkpoint_dir: /home/DSME/mf724021/data/picoformer
+  checkpoint_dir: /home/DSME/mf724021/data/picoformerV2
 
 distributed:
   # FSDP2 materializes and initializes custom from-config models before

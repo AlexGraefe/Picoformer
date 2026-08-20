@@ -53,8 +53,7 @@ step_scheduler:
   max_steps: 0
 
 lr_scheduler:
-  lr_warmup_steps: 25
-  # Derived alongside step_scheduler.max_steps; warmup remains unchanged.
+  # Derived as 20% of max_steps, capped by the value inherited from test.yaml.
   lr_decay_steps: 0
   lr_decay_style: WSD
   wsd_decay_steps: 0

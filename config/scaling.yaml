@@ -1,4 +1,4 @@
-# One independent Optuna study is run for every architecture/token pair below.
+# One independent Optuna study is run for every model-size/FLOP pair below.
 training_config: sweep
 output_dir: /home/DSME/mf724021/data/picoformer/outputs/scaling
 nproc_per_node: 1
@@ -8,48 +8,25 @@ local_batch_size: 32
 n_trials: 40
 seed: 42
 near_optimal_relative_margin: 0.0025
+weight_decay: 0.1
 
 search_space:
-  learning_rate: {low: 1.0e-4, high: 5.0e-2}
-  global_batch_size: [8, 16, 32, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
+  learning_rate: [5.0e-4, 1.0e-3, 5.0e-3, 1.0e-2, 5.0e-2]
+  global_batch_size: [32, 64, 128, 256, 512, 1024]
 
-# num_parameters is an explicit, auditable N used in C=6ND. Update it with the
-# exact trainable parameter count if you change an architecture. Architecture
-# values are applied under model.config in config/sweep.yaml.
-scales:
-  - name: qwen3_5_5m_50m
+# FLOP targets are crossed with every model size. The training token count is
+# calculated as D = C / (6N), rounded to the nearest whole token.
+compute_flops: [1.0e14, 1.0e15, 1.0e16, 1e17]
+
+# num_parameters is the explicit, auditable N used in C = 6ND. Update it with
+# the exact trainable parameter count when changing an architecture.
+model_sizes:
+  - name: qwen3_5_5m
     num_parameters: 5098474
-    num_tokens: 50_000_000
     architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
-  - name: qwen3_5_5m_100m
-    num_parameters: 5098474
-    num_tokens: 100_000_000
-    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
-  - name: qwen3_5_5m_150m
-    num_parameters: 5098474
-    num_tokens: 150_000_000
-    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
-  - name: qwen3_5_9m_50m
+  - name: qwen3_5_9m
     num_parameters: 9260702
-    num_tokens: 50_000_000
     architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
-  - name: qwen3_5_9m_100m
-    num_parameters: 9260702
-    num_tokens: 100_000_000
-    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
-  - name: qwen3_5_9m_150m
-    num_parameters: 9260702
-    num_tokens: 150_000_000
-    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
-  - name: qwen3_5_20m_50m
+  - name: qwen3_5_20m
     num_parameters: 19834206
-    num_tokens: 50_000_000
-    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
-  - name: qwen3_5_20m_100m
-    num_parameters: 19834206
-    num_tokens: 100_000_000
-    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
-  - name: qwen3_5_20m_150m
-    num_parameters: 19834206
-    num_tokens: 150_000_000
     architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
