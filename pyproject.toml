@@ -23,6 +23,7 @@ dependencies = [
 [project.scripts]
 picoformer-sweep = "picoformer.sweep:main"
 picoformer-scaling = "picoformer.scaling:main"
+picoformer-analyze-scaling = "picoformer.analyze_scaling:main"
 picoformer-plot-study = "picoformer.plot_study:main"
 
 [build-system]

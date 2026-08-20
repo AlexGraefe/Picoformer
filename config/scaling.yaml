@@ -11,7 +11,6 @@ near_optimal_relative_margin: 0.0025
 
 search_space:
   learning_rate: {low: 1.0e-4, high: 5.0e-2}
-  weight_decay: {low: 1.0e-3, high: 0.3}
   global_batch_size: [8, 16, 32, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
 
 # num_parameters is an explicit, auditable N used in C=6ND. Update it with the
@@ -20,17 +19,37 @@ search_space:
 scales:
   - name: qwen3_5_5m_50m
     num_parameters: 5098474
+    num_tokens: 50_000_000
+    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
+  - name: qwen3_5_5m_100m
+    num_parameters: 5098474
+    num_tokens: 100_000_000
+    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
+  - name: qwen3_5_5m_150m
+    num_parameters: 5098474
     num_tokens: 150_000_000
     architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
+  - name: qwen3_5_9m_50m
+    num_parameters: 9260702
+    num_tokens: 50_000_000
+    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
   - name: qwen3_5_9m_100m
     num_parameters: 9260702
-    num_tokens: 250_000_000
+    num_tokens: 100_000_000
     architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
+  - name: qwen3_5_9m_150m
+    num_parameters: 9260702
+    num_tokens: 150_000_000
+    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
+  - name: qwen3_5_20m_50m
+    num_parameters: 19834206
+    num_tokens: 50_000_000
+    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
   - name: qwen3_5_20m_100m
     num_parameters: 19834206
-    num_tokens: 250_000_000
+    num_tokens: 100_000_000
     architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
-  - name: qwen3_5_29m_200m
-    num_parameters: 28732014
-    num_tokens: 250_000_000
-    architecture: {hidden_size: 176, intermediate_size: 352, num_hidden_layers: 30}
+  - name: qwen3_5_20m_150m
+    num_parameters: 19834206
+    num_tokens: 150_000_000
+    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}

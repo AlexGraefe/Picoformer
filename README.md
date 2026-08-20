@@ -47,6 +47,13 @@ loss on the independent `validation-*.bin` split, not training loss.
 uv run picoformer-scaling --config config/scaling.yaml
 ```
 
+To regenerate the tables, fitted laws, and plot from the existing study
+databases without running any new training trials:
+
+```bash
+uv run picoformer-analyze-scaling --config config/scaling.yaml
+```
+
 Each study is resumable through its SQLite database. The output directory gets:
 
 - `best_settings.csv`: exact best trial plus the geometric median of all trials
@@ -54,11 +61,13 @@ Each study is resumable through its SQLite database. The output directory gets:
 - `best_overall.json`: the model size, token count, and Muon hyperparameters
   that achieved the lowest validation loss across all scale points;
 - `power_laws.json`: coefficients, exponents, and log-space R-squared for
-  `h(C) = a C^b`, using `C = 6 N D`;
-- `power_laws.png`: learning-rate, weight-decay, and batch-size log-log fits;
+  `h(C) = a C^b`, fitted independently for every model size using `C = 6 N D`;
+- `power_laws.png`: learning-rate, weight-decay, and batch-size log-log fits,
+  with a separate scaling law for every model size;
 - per-trial generated configs, logs, checkpoints, and validation metrics.
 
 The `num_parameters` values in `config/scaling.yaml` are the explicit `N` used
 for compute accounting. Keep them synchronized with the exact trainable count
-when changing the associated architecture. At least two scale points are
-required; four or more spanning multiple orders of magnitude are recommended.
+when changing the associated architecture. At least two token-budget points are
+required for each model size; four or more spanning multiple orders of magnitude
+are recommended.
