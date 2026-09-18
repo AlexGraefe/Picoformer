@@ -19,6 +19,7 @@ from picoformer.scaling import (
     grid_search_space,
     local_batch_size_candidates,
     read_validation_loss,
+    remaining_trial_budget,
 )
 
 
@@ -50,6 +51,28 @@ class ScalingTest(unittest.TestCase):
                 "global_batch_size": [32, 64],
             },
         )
+
+    def test_completed_grid_is_not_run_again(self) -> None:
+        study = optuna.create_study(direction="minimize")
+        for value in range(30):
+            study.add_trial(optuna.trial.create_trial(value=float(value)))
+        search_space = {
+            "learning_rate": [1e-4, 1e-3, 1e-2, 1e-1, 1.0],
+            "global_batch_size": [32, 64, 128, 256, 512, 1024],
+        }
+
+        self.assertEqual(remaining_trial_budget(study, 40, search_space), 0)
+
+    def test_resume_only_runs_remaining_trials(self) -> None:
+        study = optuna.create_study(direction="minimize")
+        for value in range(29):
+            study.add_trial(optuna.trial.create_trial(value=float(value)))
+        search_space = {
+            "learning_rate": [1e-4, 1e-3, 1e-2, 1e-1, 1.0],
+            "global_batch_size": [32, 64, 128, 256, 512, 1024],
+        }
+
+        self.assertEqual(remaining_trial_budget(study, 40, search_space), 1)
 
     def test_compute_budget(self) -> None:
         self.assertEqual(compute_budget(1_000_000_000, 2_000_000_000), 1.2e19)

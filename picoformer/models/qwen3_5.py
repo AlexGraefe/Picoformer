@@ -5,12 +5,16 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from nemo_automodel import NeMoAutoModelForCausalLM
+from nemo_automodel.components.distributed.parallelizer import (
+    Qwen3_5ParallelizationStrategy,
+    register_parallel_strategy,
+)
 from nemo_automodel._transformers.registry import ModelRegistry
 from nemo_automodel.components.models.qwen3_5.model import Qwen3_5ForCausalLM
 
 
 class PicoformerQwen3_5ForCausalLM(Qwen3_5ForCausalLM):
-    """Qwen3.5 with the embedding initialization fixed for one-rank training."""
+    """Qwen3.5 with corrected embedding initialization."""
 
     @torch.no_grad()
     def initialize_weights(
@@ -29,6 +33,11 @@ class PicoformerQwen3_5ForCausalLM(Qwen3_5ForCausalLM):
             self.model.embed_tokens.weight[self.model.embed_tokens.padding_idx].zero_()
 
 
+@register_parallel_strategy(name="PicoformerQwen3_5ForCausalLM")
+class PicoformerQwen3_5ParallelizationStrategy(Qwen3_5ParallelizationStrategy):
+    """Use Qwen3.5's mixed-dtype FSDP strategy for the project subclass."""
+
+
 # Importing this project module makes NeMo's normal AutoModel resolution select
 # the derived implementation. This retains NeMo's materialization, sharding, and
 # checkpoint infrastructure without modifying an installed package or class.
@@ -39,6 +48,7 @@ ModelRegistry.register(
 )
 
 
-class PicoformerAutoModelForCausalLM(NeMoAutoModelForCausalLM):
-    """NeMo factory whose import registers Picoformer's Qwen3.5 subclass."""
-
+# Keep the factory identical to NeMo's class so its training recipe recognizes the
+# target and passes the distributed setup into from_config. Importing this module
+# still performs both project-specific registrations above.
+PicoformerAutoModelForCausalLM = NeMoAutoModelForCausalLM

@@ -1,0 +1,47 @@
+{
+  "batch_size": "8",
+  "checkpoint": "/data/picoformer/outputs/scaling/qwen3_5_135m_135136414p_1e+16flops/trial_0021/attempt_00_local_batch_2/checkpoints/epoch_0_step_5",
+  "checkpoint_step": 5,
+  "command": [
+    "lm-eval",
+    "run",
+    "--model",
+    "hf",
+    "--model_args",
+    "pretrained=/data/picoformer/outputs/scaling/qwen3_5_135m_135136414p_1e+16flops/trial_0021/attempt_00_local_batch_2/checkpoints/epoch_0_step_5/model/consolidated,tokenizer=HuggingFaceTB/SmolLM2-135M,dtype=bfloat16",
+    "--tasks",
+    "coqa,gsm8k",
+    "--device",
+    "cuda:0",
+    "--batch_size",
+    "8",
+    "--output_path",
+    "/home/alex/Documents/025_LLM/Picoformer/results/evaluations/attempt_00_local_batch_2/epoch_0_step_5/pretrain/smoke",
+    "--log_samples",
+    "--gen_kwargs",
+    "do_sample=False",
+    "--limit",
+    "20",
+    "--write_out"
+  ],
+  "device": "cuda:0",
+  "dtype": "bfloat16",
+  "epoch": 0,
+  "harness_version": "0.4.13",
+  "phase": "smoke",
+  "result_files": [
+    "/home/alex/Documents/025_LLM/Picoformer/results/evaluations/attempt_00_local_batch_2/epoch_0_step_5/pretrain/smoke/__data__picoformer__outputs__scaling__qwen3_5_135m_135136414p_1e+16flops__trial_0021__attempt_00_local_batch_2__checkpoints__epoch_0_step_5__model__consolidated/results_2026-09-03T14-09-26.671314.json"
+  ],
+  "return_code": 0,
+  "run_name": "attempt_00_local_batch_2",
+  "run_slug": "attempt_00_local_batch_2",
+  "status": "complete",
+  "suite": "pretrain",
+  "tasks": [
+    "coqa",
+    "gsm8k"
+  ],
+  "tokenizer": "HuggingFaceTB/SmolLM2-135M",
+  "training_step": 6,
+  "updated_at": "2026-09-03T12:09:28.326838+00:00"
+}

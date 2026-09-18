@@ -66,6 +66,26 @@ def grid_search_space(
     return result
 
 
+def remaining_trial_budget(
+    study: optuna.Study,
+    configured_n_trials: int,
+    search_space: dict[str, list[str | float | int]],
+) -> int:
+    """Return how many additional trials may be added to a persisted study.
+
+    ``Study.optimize(n_trials=...)`` treats ``n_trials`` as a per-call count. In
+    contrast, the scaling configuration defines a cap for the whole study. The
+    grid size is also a hard cap: calling an exhausted ``GridSampler`` once more
+    makes Optuna deliberately schedule one duplicate configuration before it
+    notices that the grid is exhausted.
+    """
+    if configured_n_trials < 0:
+        raise ValueError("n_trials must be non-negative")
+    grid_size = math.prod(len(values) for values in search_space.values())
+    target_trials = min(configured_n_trials, grid_size)
+    return max(0, target_trials - len(study.trials))
+
+
 def local_batch_size_candidates(
     configured_local_batch_size: int, global_batch_size: int, world_size: int
 ) -> list[int]:
@@ -164,20 +184,21 @@ def run(config_path: Path) -> Path:
         scale_dir = output_dir / name
         scale_dir.mkdir(parents=True, exist_ok=True)
         storage = f"sqlite:///{(scale_dir / 'study.db').resolve()}"
+        search_space = grid_search_space(cfg, scale)
         study = optuna.create_study(
             study_name=name,
             storage=storage,
             direction="minimize",
             load_if_exists=True,
-            sampler=optuna.samplers.GridSampler(
-                grid_search_space(cfg, scale), seed=int(cfg.seed)
-            ),
+            sampler=optuna.samplers.GridSampler(search_space, seed=int(cfg.seed)),
         )
-        study.optimize(
-            TrainingObjective(cfg, scale, scale_dir),
-            n_trials=int(cfg.n_trials),
-            catch=(subprocess.CalledProcessError, FileNotFoundError, ValueError),
-        )
+        remaining = remaining_trial_budget(study, int(cfg.n_trials), search_space)
+        if remaining:
+            study.optimize(
+                TrainingObjective(cfg, scale, scale_dir),
+                n_trials=remaining,
+                catch=(subprocess.CalledProcessError, FileNotFoundError, ValueError),
+            )
     return analyze(config_path)
 
 

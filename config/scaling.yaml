@@ -1,32 +1,26 @@
 # One independent Optuna study is run for every model-size/FLOP pair below.
 training_config: sweep
-output_dir: /home/DSME/mf724021/data/picoformer/outputs/scaling
-nproc_per_node: 1
+output_dir: /data/picoformer/outputs/scaling
+nproc_per_node: 2
 # Initial per-device batch. Failed runs retry with 16, 8, 4, 2, then 1 while
 # preserving the sampled global batch size through gradient accumulation.
-local_batch_size: 32
+local_batch_size: 2
 n_trials: 40
 seed: 42
 near_optimal_relative_margin: 0.0025
 weight_decay: 0.1
 
 search_space:
-  learning_rate: [5.0e-4, 1.0e-3, 5.0e-3, 1.0e-2, 5.0e-2]
-  global_batch_size: [32, 64, 128, 256, 512, 1024]
+  learning_rate: [1.0e-3, 2.5e-3, 5.0e-3, 7.5e-3, 1.0e-2, 2e-2]
+  global_batch_size: [4, 8, 16]
 
 # FLOP targets are crossed with every model size. The training token count is
 # calculated as D = C / (6N), rounded to the nearest whole token.
-compute_flops: [1.0e14, 1.0e15, 1.0e16, 1e17]
+compute_flops: [1e17]
 
 # num_parameters is the explicit, auditable N used in C = 6ND. Update it with
 # the exact trainable parameter count when changing an architecture.
 model_sizes:
-  - name: qwen3_5_5m
-    num_parameters: 5098474
-    architecture: {hidden_size: 36, intermediate_size: 72, num_hidden_layers: 30}
-  - name: qwen3_5_9m
-    num_parameters: 9260702
-    architecture: {hidden_size: 64, intermediate_size: 128, num_hidden_layers: 30}
-  - name: qwen3_5_20m
-    num_parameters: 19834206
-    architecture: {hidden_size: 128, intermediate_size: 256, num_hidden_layers: 30}
+  - name: qwen3_5_135m
+    num_parameters: 135136414
+    architecture: {hidden_size: 576, intermediate_size: 1152, num_hidden_layers: 30}

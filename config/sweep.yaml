@@ -5,7 +5,7 @@ defaults:
   - sweep_optimizer: muon
   - _self_
 
-base_dir: /home/DSME/mf724021/data
+base_dir: /data
 
 # Each Hydra job receives its own checkpoint directory, preventing sweep jobs
 # from restoring or overwriting one another.
@@ -44,7 +44,7 @@ sweep:
   # Fraction of training steps used for the final linear WSD decay.
   final_decay_ratio: 0.1
   # The generated scheduler ends at this percentage of each swept base LR.
-  final_lr_percentage: 10.0
+  final_lr_percentage: 1.0
 
 step_scheduler:
   global_batch_size: 256

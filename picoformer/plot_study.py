@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
 import math
 from pathlib import Path
 
@@ -48,6 +49,21 @@ def _annotation(trial: optuna.trial.FrozenTrial) -> str:
     )
 
 
+def _grouped_trials(
+    trials: list[optuna.trial.FrozenTrial],
+    x_parameter: str,
+    group_parameter: str,
+) -> list[tuple[float, list[optuna.trial.FrozenTrial]]]:
+    """Group trials by one parameter and order each group along the x-axis."""
+    groups: dict[float, list[optuna.trial.FrozenTrial]] = defaultdict(list)
+    for trial in trials:
+        groups[float(trial.params[group_parameter])].append(trial)
+    return [
+        (group, sorted(group_trials, key=lambda trial: float(trial.params[x_parameter])))
+        for group, group_trials in sorted(groups.items())
+    ]
+
+
 def plot_study(database: Path, output: Path) -> Path:
     """Create batch-size and learning-rate versus loss plots."""
     import matplotlib
@@ -60,15 +76,37 @@ def plot_study(database: Path, output: Path) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     plots = (
-        ("global_batch_size", "Global batch size", False),
-        ("learning_rate", "Learning rate", True),
+        (
+            "global_batch_size",
+            "Global batch size",
+            "learning_rate",
+            "Learning rate",
+            False,
+        ),
+        ("learning_rate", "Learning rate", "global_batch_size", "Batch size", True),
     )
     fig, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
-    losses = [float(trial.value) for trial in trials]
-    for axis, (parameter, label, log_scale) in zip(axes, plots, strict=True):
-        values = [float(trial.params[parameter]) for trial in trials]
-        axis.scatter(values, losses, s=42, alpha=0.85)
-        for x, y, trial in zip(values, losses, trials, strict=True):
+    for axis, (parameter, label, group_parameter, group_label, log_scale) in zip(
+        axes, plots, strict=True
+    ):
+        for group, group_trials in _grouped_trials(trials, parameter, group_parameter):
+            values = [float(trial.params[parameter]) for trial in group_trials]
+            losses = [float(trial.value) for trial in group_trials]
+            formatted_group = (
+                f"{group:.3g}" if group_parameter == "learning_rate" else f"{group:g}"
+            )
+            axis.plot(
+                values,
+                losses,
+                marker="o",
+                markersize=6,
+                linewidth=1.4,
+                alpha=0.85,
+                label=f"{group_label} {formatted_group}",
+            )
+        for trial in trials:
+            x = float(trial.params[parameter])
+            y = float(trial.value)
             axis.annotate(
                 _annotation(trial),
                 (x, y),
@@ -81,6 +119,7 @@ def plot_study(database: Path, output: Path) -> Path:
             axis.set_xscale("log")
         axis.set_xlabel(label)
         axis.grid(True, which="both", alpha=0.25)
+        axis.legend(fontsize=8)
 
     axes[0].set_ylabel("Validation loss")
     fig.suptitle(f"Hyperparameter trials: {study_name}")
