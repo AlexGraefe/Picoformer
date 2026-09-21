@@ -215,6 +215,7 @@ tempCodeRunnerFile.py
 
 # Generated Hydra sweep configs, logs, and checkpoints
 /outputs/sweeps/
+/outputs/train/
 
 # Marimo
 marimo/_static/

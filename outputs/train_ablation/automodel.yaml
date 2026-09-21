@@ -1,0 +1,110 @@
+recipe: TrainFinetuneRecipeForNextTokenPrediction
+wandb:
+  project: LLM_Test
+  entity: federated_learning_multi_hop
+  name: picoformerV2_ablation
+  id: 46018c58481948c2a4e9224f1ff96f35
+  resume: never
+  dir: /home/DSME/mf724021/Picoformer/outputs/train_ablation
+step_scheduler:
+  global_batch_size: 16
+  local_batch_size: 8
+  ckpt_every_steps: 500
+  num_epochs: 30519
+  max_steps: 278018
+  val_every_steps: 500
+dist_env:
+  backend: nccl
+  timeout_minutes: 10
+model:
+  _target_: picoformer.models.qwen3_5.PicoformerAutoModelForCausalLM.from_config
+  config:
+    _target_: transformers.models.qwen3_5.configuration_qwen3_5.Qwen3_5TextConfig
+    architectures:
+    - Qwen3_5ForCausalLM
+    vocab_size: 49152
+    hidden_size: 576
+    intermediate_size: 1152
+    num_hidden_layers: 30
+    num_attention_heads: 9
+    num_key_value_heads: 3
+    head_dim: 64
+    linear_key_head_dim: 64
+    linear_value_head_dim: 64
+    linear_num_key_heads: 9
+    linear_num_value_heads: 9
+    max_position_embeddings: 8192
+    tie_word_embeddings: true
+    bos_token_id: 0
+    eos_token_id: 0
+    dtype: bfloat16
+    initializer_range: 0.02
+  force_hf: false
+  torch_dtype: bfloat16
+  attn_implementation: flash_attention_2
+  use_sdpa_patching: false
+dataset:
+  _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
+  file_pattern: /home/DSME/mf724021/data/datasets/fineweb_edu_mini/train-*.bin
+  seq_len: 2048
+  bos_token: 0
+  eos_token: 0
+  shuffle_files: true
+  attn_implementation: flash_attention_2
+packed_sequence:
+  packed_sequence_size: 0
+dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  shuffle: false
+  num_workers: 2
+  pin_memory: true
+  batch_size: 8
+  collate_fn: picoformer.datasets.packed_nanogpt.packed_nanogpt_collater
+loss_fn:
+  _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy
+optimizer:
+  _target_: picoformer.optim.MixedPrecisionMuonConfig
+  lr: 0.001
+  weight_decay: 0.1
+  mu: 0.95
+  betas:
+  - 0.9
+  - 0.95
+  epsilon: 1.0e-08
+  scalar_opt: lion
+lr_scheduler:
+  lr_warmup_steps: 0
+  lr_decay_steps: 278018
+  lr_decay_style: WSD
+  wsd_decay_steps: 30518
+  lr_wsd_decay_style: linear
+  min_lr: 1.0e-05
+  override_opt_param_scheduler: true
+  use_checkpoint_opt_param_scheduler: false
+checkpoint:
+  checkpoint_dir: /home/DSME/mf724021/data/picoformerV2_ablation
+  restore_from: /home/DSME/mf724021/data/picoformerV2/epoch_0_step_247499
+  enabled: true
+distributed:
+  strategy: fsdp2
+  dp_size: none
+  tp_size: 1
+  cp_size: 1
+  sequence_parallel: false
+base_dir: /data
+validation_dataset:
+  _target_: picoformer.datasets.packed_nanogpt.PackedNanogptDataset
+  file_pattern: /home/DSME/mf724021/data/datasets/fineweb_edu_mini/validation-*.bin
+  seq_len: 2048
+  bos_token: 0
+  eos_token: 0
+  shuffle_files: false
+  attn_implementation: flash_attention_2
+  max_samples: 512
+validation_dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  shuffle: false
+  num_workers: 2
+  pin_memory: true
+  batch_size: 8
+  collate_fn: picoformer.datasets.packed_nanogpt.packed_nanogpt_collater

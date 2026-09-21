@@ -1,16 +1,92 @@
 # Picoformer
 
+## Training with a token budget
+
+Set `num_tokens_B` in `config/optimal_training_config.yaml` to the desired token
+count in billions (for example, `1.0` means one billion tokens), then run:
+
+```bash
+uv run python -m picoformer.train --config config/optimal_training_config.yaml --nproc-per-node 2
+```
+
+The installed command is `picoformer-train`. Add `--dry-run` to generate
+`outputs/train/automodel.yaml` without launching training, or choose another
+destination with `--output-config`.
+
+To resume from a specific NeMo training checkpoint, use the same training config:
+
+```bash
+uv run python main.py --config config/optimal_training_config.yaml --nproc-per-node 2 \
+  --resume-from /path/to/epoch_0_step_499
+```
+
+`main.py` uses the same launcher as `picoformer-train` and
+`python -m picoformer.train`; all accept `--resume-from`. Pass the full training
+checkpoint directory, which contains the model, optimizer, and training state.
+Relative paths are resolved from the current working directory. This restores
+training progress, including optimizer, scheduler, and dataloader state.
+The token budget remains the total run budget, including completed steps.
+Without `--resume-from`, NeMo retains its existing behavior: use
+`checkpoint.restore_from` from the YAML if set, otherwise look for the latest
+compatible checkpoint in `checkpoint.checkpoint_dir`.
+
+Training steps are `ceil(num_tokens_B * 1e9 / (global_batch_size * dataset.seq_len))`.
+As in the scaling experiments, warmup is 20% of the step count rounded up,
+capped by `lr_scheduler.lr_warmup_steps`. Linear WSD decay occupies the final
+`final_decay_ratio` of steps (default 0.1), ending at `final_lr_percentage`
+percent of `optimizer.lr` (default 1%). The global batch already includes all
+devices and gradient accumulation; changing the local batch does not change
+the token budget or optimizer-step count.
+
+Set `step_scheduler.local_batch_size` to control both training and validation
+dataloader batches. For data parallel training, the global batch must be
+divisible by the local batch times the number of processes. Existing checkpoint
+and validation intervals are preserved.
+
+To branch an ablation from the latest training state and train for an
+**additional** token budget specified as a float in billions:
+
+```bash
+uv run python -m picoformer.train --config config/optimal_training_config.yaml \
+  --mode ablation --num-tokens-b 0.5 --nproc-per-node 2
+```
+
+This loads the latest checkpoint from the original `checkpoint.checkpoint_dir`
+(or the checkpoint selected by `--resume-from`), including optimizer and
+dataloader state. The budget rounds up to full optimizer steps. There is no new
+warmup. The linear decay keeps its original duration from the training config:
+a positive `lr_scheduler.wsd_decay_steps`, or the duration derived from the
+original `num_tokens_B` and `final_decay_ratio`. Any remaining ablation steps use
+the constant learning rate. If the budget is shorter than that decay, decay
+starts immediately and is compressed to reach the configured minimum LR at the
+end of the budget. Keep `num_tokens_B` at the original training budget; use
+`--num-tokens-b` for the ablation budget (`0.5` means 500 million additional
+tokens). `--num-tokens` is an alias and also uses billions.
+
+Checkpoints and training/validation logs go to `checkpoint.checkpoint_dir` with
+`_ablation` appended. The generated config defaults to
+`outputs/train_ablation/automodel.yaml`; a custom `--output-config` also gets
+`_ablation` appended to its parent directory. W&B uses a fresh run ID and a run
+name ending in `_ablation`, with local files in the generated config directory
+(or the configured `wandb.dir` with `_ablation` appended). Add `--dry-run` to
+inspect the generated config without starting training.
+
 ## Quick CPU generation check
 
-Load a saved training checkpoint and stream 512 new tokens after `Hi, `:
+Load a saved training checkpoint and stream 512 new tokens after `Hi, today the weather is`:
 
 ```bash
 uv run python -m picoformer.vibe_check /path/to/epoch_0_step_499
 ```
 
 Use `--prompt "Once upon a time"` or `--max-new-tokens 128` to change the
-input or output length. Generation is greedy and continues through EOS until
-the requested token count. The script hides GPUs, loads float32 weights on CPU,
+input or output length. Sampling defaults to [Qwen3.5's general thinking-mode
+recommendations](https://huggingface.co/Qwen/Qwen3.5-35B-A3B#best-practices):
+`--temperature 1.0 --top-p 0.95 --top-k 20 --min-p 0.0 --presence-penalty 1.5 --repetition-penalty 1.0`.
+Override any of these flags, or use `--temperature 0` for greedy decoding.
+The presence penalty applies once per distinct generated token, excluding the prompt.
+Generation continues through EOS until the requested token count.
+The script hides GPUs, loads float32 weights on CPU,
 and uses four CPU threads by default (`--num-threads` changes this), so it can
 run alongside training.
 

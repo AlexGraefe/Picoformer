@@ -27,6 +27,7 @@ class SweepTest(unittest.TestCase):
                         "dataset.seq_len=128",
                         "sweep.num_tokens=10241",
                         "sweep.final_decay_ratio=0.4",
+                        "sweep.final_lr_percentage=10.0",
                         "optimizer.lr=0.0003",
                         f"checkpoint.checkpoint_dir={tmp_path}/checkpoints",
                     ],

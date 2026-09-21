@@ -18,6 +18,7 @@ dependencies = [
     "pip>=26.2.1",
     "tqdm>=4.67.1",
     "transformers>=5.8.0",
+    "accelerate>=1.14.0",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,7 @@ eval = [
 ]
 
 [project.scripts]
+picoformer-train = "picoformer.train:main"
 picoformer-sweep = "picoformer.sweep:main"
 picoformer-scaling = "picoformer.scaling:main"
 picoformer-analyze-scaling = "picoformer.analyze_scaling:main"
